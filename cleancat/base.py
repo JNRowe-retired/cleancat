@@ -8,17 +8,21 @@ if sys.version_info[0] == 3:
 else:
     basestring = basestring
 
+
 class ValidationError(Exception):
     pass
 
+
 class StopValidation(Exception):
     pass
+
 
 class Field(object):
     base_type = None
     blank_value = None
 
-    def __init__(self, required=True, default=None, field_name=None, mutable=True):
+    def __init__(self, required=True, default=None, field_name=None,
+                 mutable=True):
         self.required = required
         self.default = default
         self.mutable = mutable
@@ -28,11 +32,13 @@ class Field(object):
         return value is not None
 
     def clean(self, value):
-        if self.base_type is not None and value is not None and not isinstance(value, self.base_type):
-            raise ValidationError('Value must be of %s type.' % self.base_type.__name__)
+        if self.base_type is not None and value is not None \
+                and not isinstance(value, self.base_type):
+            raise ValidationError('Value must be of %s type.'
+                                  % self.base_type.__name__)
 
         if not self.has_value(value):
-            if self.default != None:
+            if self.default is not None:
                 raise StopValidation(self.default)
 
             if self.required:
@@ -42,6 +48,7 @@ class Field(object):
 
         return value
 
+
 class String(Field):
     base_type = basestring
     blank_value = ''
@@ -49,22 +56,25 @@ class String(Field):
     def has_value(self, value):
         return bool(value)
 
+
 class Bool(Field):
     base_type = bool
     blank_value = False
+
 
 class Regex(String):
     regex = None
     regex_flags = 0
     regex_message = 'Invalid input.'
 
-    def __init__(self, regex=None, regex_flags=None, regex_message=None, **kwargs):
+    def __init__(self, regex=None, regex_flags=None, regex_message=None,
+                 **kwargs):
         super(Regex, self).__init__(**kwargs)
-        if regex != None:
+        if regex is not None:
             self.regex = regex
-        if regex_flags != None:
+        if regex_flags is not None:
             self.regex_flags = regex_flags
-        if regex_message != None:
+        if regex_message is not None:
             self.regex_message = regex_message
 
     def get_regex(self):
@@ -77,6 +87,7 @@ class Regex(String):
             raise ValidationError(self.regex_message)
 
         return value
+
 
 class DateTime(Regex):
     """ ISO 8601 from http://www.pelagodesign.com/blog/2009/05/20/iso-8601-date-validation-that-doesnt-suck/ """
@@ -101,10 +112,12 @@ class DateTime(Regex):
             return dt
         return dt.date()
 
+
 class Email(Regex):
     regex = r'^.+@[^.].*\.[a-z]{2,10}$'
     regex_flags = re.IGNORECASE
     regex_message = 'Invalid email address.'
+
 
 class URL(Regex):
     blank_value = None
@@ -116,19 +129,23 @@ class URL(Regex):
         self.scheme_regex = re.compile('^'+scheme_part, re.IGNORECASE)
         if default_scheme:
             scheme_part = '(%s)?' % scheme_part
-        regex = r'^%s([^/:]+%s|([0-9]{1,3}\.){3}[0-9]{1,3})(:[0-9]+)?(\/.*)?$' % (scheme_part, tld_part)
-        super(URL, self).__init__(regex=regex, regex_flags=re.IGNORECASE, regex_message='Invalid URL.', **kwargs)
+        regex = r'^%s([^/:]+%s|([0-9]{1,3}\.){3}[0-9]{1,3})(:[0-9]+)?(\/.*)?$' \
+            % (scheme_part, tld_part)
+        super(URL, self).__init__(regex=regex, regex_flags=re.IGNORECASE,
+                                  regex_message='Invalid URL.', **kwargs)
 
     def clean(self, value):
         if value == self.blank_value:
-            return value 
+            return value
         value = super(URL, self).clean(value)
         if not self.scheme_regex.match(value):
             value = self.default_scheme + value
         return value
 
+
 class Integer(Field):
     base_type = int
+
 
 class List(Field):
     base_type = list
@@ -163,11 +180,13 @@ class List(Field):
 
         return data
 
+
 class Dict(Field):
     base_type = dict
 
     def has_value(self, value):
         return bool(value)
+
 
 class Embedded(Dict):
     def __init__(self, schema_class, **kwargs):
@@ -190,6 +209,7 @@ class Embedded(Dict):
             return False
         else:
             return True
+
 
 class Choices(Field):
     def __init__(self, choices, case_insensitive=False, **kwargs):
@@ -218,6 +238,7 @@ class Choices(Field):
 
         return value
 
+
 # TODO move to separate module
 class MongoEmbedded(Embedded):
     """
@@ -231,6 +252,7 @@ class MongoEmbedded(Embedded):
     def clean(self, value):
         value = super(MongoEmbedded, self).clean(value)
         return self.document_class(**value)
+
 
 class MongoEmbeddedReference(MongoEmbedded):
     """
@@ -251,11 +273,6 @@ class MongoEmbeddedReference(MongoEmbedded):
     def __init__(self, *args, **kwargs):
         self.pk_field = kwargs.pop('pk_field', 'id')
         super(MongoEmbeddedReference, self).__init__(*args, **kwargs)
-
-
-    def clean(self, value):
-        value = super(Embedded, self).clean(value)
-        return self.schema_class(value).full_clean()
 
     def clean(self, value):
         from mongoengine import ValidationError as MongoValidationError
@@ -281,6 +298,7 @@ class MongoEmbeddedReference(MongoEmbedded):
             value = self.schema_class(value).full_clean()
             return self.document_class(**value)
 
+
 class MongoReference(Field):
     """
     Represents a reference. Expects the ID as input.
@@ -299,6 +317,7 @@ class MongoReference(Field):
             return self.document_class.objects.get(pk=value)
         except self.document_class.DoesNotExist:
             raise ValidationError('Object does not exist.')
+
 
 class Schema(object):
     def __init__(self, raw_data=None, data=None):
